@@ -1,0 +1,228 @@
+#!/bin/bash
+
+SIMULATE="true"
+
+echo_fail() {
+  printf "\e[31m✘ \033\e[0m$@\n"
+}
+echo_pass() {
+  printf "\e[32m✔ \033\e[0m$@\n"
+}
+echo_pause() {
+  printf "\e[34m⏸︎ \033\e[0m$1\n"
+}
+echo_question() {
+  printf "\e[33m? \033\e[0m$@\n"
+}
+echo_info() {
+  printf "\e[34mℹ \033\e[0m$1\n"
+}
+echo_point() {
+  printf "\e[34m→ \033\e[0m$1\n"
+}
+echo_bullet() {
+  printf "\e[34m• \033\e[0m$1\n"
+}
+echo_wait() {
+  if [ "$2" = "" ]; then
+    printf "\e[33m⏲︎ \033\e[0m$1\n"
+  else
+    printf "\e[33m⏲︎ \033\e[0m$1"
+  fi
+}
+echo_wait() {
+  printf "\e[33m⏲︎ \033\e[0m$@\n"
+}
+echo_warn() {
+  printf "\e[33m✋ \033\e[0m$@\n"
+}
+
+function help() {
+  if [ "$1" == "help" ]; then
+    echo "konnect - Konnect API Platform CLI:"
+    echo "Available subcommands:"
+    echo "    up   : Bootstrap a new Control Plane and configure an API Gateway."
+    echo "            * llmgateway - Set up the 'llmgateway' API Gateway."
+    echo "    help : Display this help text."
+    exit 0
+  fi
+}
+
+function authenticate() {
+  # Generate an 8 character (4-4) alphanumeric code
+  CODE=$(LC_ALL=C tr -dc 'A-Z0-9' < /dev/urandom | fold -w 4 | head -n 2 | paste -sd- -)
+  
+  echo_bullet "Authorizing with Konnect..."
+  echo_point  " Copy your one-time device code: ${CODE}"
+  
+  echo_point  " Press Enter to open cloud.konghq.com in your browser"
+  echo        "    and follow instructions to authenticate"
+
+  if [ "$SIMULATE" = "true" ]; then
+    read -n1 -s
+  fi
+
+  #open "https://cloud.konghq.com/"
+
+  echo_wait "Authenticating with browser... " noline
+  [ "$SIMULATE" = "true" ] && sleep 3
+  echo_pass ""
+  echo_pass "Authorized!"
+
+}
+
+function konnect_up_llm-gateway() {
+    echo "This scenario will deploy an LLM aware API gateway"
+    echo "supporting normalization and governance over outbound LLM API requests."
+    echo
+    echo "In order for your new LLM API Gateway to proxy requests to AI providers,"
+    echo "this script must configure the gateway with API keys for each provider."
+    echo "The script will prompt you for API keys for each supported provider,"
+    echo "press Enter without providing a key to skip a provider."
+    echo
+    echo "NOTE: These API keys will only be configured as environment vaiables in a LOCAL Kong Gateway"
+    echo "dataplane running in Docker, and they will not be sent outside this host machine."
+    echo
+    
+    if [ "$SIMULATE" = "true" ]; then
+        read -p "Do you want to continue? (y/n) " response
+        if [[ "$response" =~ ^([nN][oO]|[nN])$ ]]
+        then
+            echo "Exiting..."
+            exit 1
+        fi
+    fi
+
+    echo
+    echo "Running the llm-gateway scenario for Konnect"
+    echo
+    authenticate
+
+    echo
+    echo_bullet "Collecting AI Provider API Keys. Paste key value or Enter to skip a provider"
+    read -p " Enter OpenAI API Key   : " OPENAI_API_KEY
+    read -p " Enter Cohere API Key   : " COHERE_API_KEY
+    read -p " Enter AzureAI API Key  : " AZURE_API_KEY
+    read -p " Enter Anthropic API Key: " ANTHROPIC_API_KEY
+    echo_pass "API Keys collected"
+
+    echo
+    echo_bullet "Generating local configuration files..."
+    echo_wait "Generating default OpenAPI specification file ( llm-gateway-oas.yaml )... " noline
+    [ "$SIMULATE" = "true" ] && sleep 1
+    echo_pass ""
+
+    echo_wait "Generating Kong Gateway declarative configuration file ( llm-gateway-deck.yaml )... " noline
+    [ "$SIMULATE" = "true" ] && sleep 1
+    echo_pass ""
+    echo_pass "Configuration files ready!"
+
+    echo
+    echo_bullet "Initializing Konnect environment..."
+    echo_wait "Creating new Personal Access Token ( llm-gateway-pat )... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    RESOURCE_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | fold -w 6 | head -n 1)
+    echo_wait "Creating new Konnect control plane ( ai-gateway-$RESOURCE_SUFFIX )... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_info "Control plane 'ai-gateway-$RESOURCE_SUFFIX' is ready and available at:"
+    echo      "   https://cloud.konghq.com/us/gateway-manager/e5c34651-f676-401c-82b2-018f9587d976/overview"
+    echo_pass "Konnect ready!"
+
+    echo
+    echo_bullet "Deploying new Kong Gateway data plane on local Docker..."
+    echo_wait "pulling Docker images... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_wait "starting Kong Gateway... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_wait "syncronizing llm-gateway-deck.yaml... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_pass "Kong Gateway ready!"
+    echo
+
+    echo_wait "Creating new Konnect API Product ( LLM Gateway )... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_info "API Product 'LLM GATEWAY' is ready and available at:"
+    echo      "   https://cloud.konghq.com/us/api-products/4743073a-8017-4982-9ecd-02a14a37780e/overview" 
+
+    echo_wait "Creating new Konnect API Product Version ( v0.0.1 )... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_wait "Uploading OpenAPI specification 'llm-gateway-oas.yaml' to 'LLM Gateway API Product v0.0.1'" noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_info "API Product Version 'LLM GATEWAY v0.0.1' is ready and available at:"
+    echo      "    https://cloud.konghq.com/us/api-products/4743073a-8017-4982-9ecd-02a14a37780e/versions/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
+
+    # A user may have a portal already enabled, and it might not be public. Is this a concern?
+    # Maybe not, because when we link to it later they have to provide credentials to see it
+    echo
+    echo_bullet "Preparing Konnect Developer Portal..."
+    echo_wait "Your organization's Developer Portal is disabled, enabling..."
+    echo_wait "Enabling Developer Portal... " noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_info "Developer Portal ready and available at:"
+    echo      "   https://kong614235c4.us.portal.konghq.com/"
+    echo_wait "Publishing LLM Gateway API Product v0.0.1 to Developer Portal..." noline
+    [ "$SIMULATE" = "true" ] && sleep 2
+    echo_pass ""
+    echo_pass "Developer Portal ready!"
+
+    echo 
+    echo_pass "Your Konnect based LLM Kong Gateway is deployed!"
+    echo
+    echo      "You can now test your LLM Kong Gateway by sending a request to the local dataplane."
+    echo
+    echo      "curl -s localhost:8000/openai/chat -H \"Content-Type: application/json\" -d '{"
+    echo      " \"messages\": [{"
+    echo      "   \"role\": \"user\","
+    echo      "   \"content\": \"abc\""
+    echo      "  }]"
+
+    echo       
+    echo      "The Developer Portal documents all available routes and request formats:"
+    echo      "   https://kong614235c4.us.portal.konghq.com/spec/343db660-6071-439c-a7f8-8900a115fe75/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
+}
+
+function up() {
+  SUBARG=$1
+  shift
+
+  if [ "$SUBARG" == "up" ]; then
+    SCENARIO=$1
+    if [ -z "$SCENARIO" ]; then
+      echo
+      echo "The 'up' subcommand deploys a preconfigured quickstart scenario on Konnect."
+      echo "  Please specify the scenario you want to deploy."
+      echo
+      echo "  Supported scenarios:"
+      echo "    * 'llm-gateway' deploys Kong Gateway as an intelligent egress gateway for AI based language models."
+      echo "          The gateway supports multiple AI providers and a standard API for interacting with them."
+      echo
+      echo "  Usage: konnect up [llm-gateway]"
+      exit 0
+    elif [ "$SCENARIO" != "llm-gateway" ]; then
+      echo "Unsupported Konnect scenario: $SCENARIO."
+      echo "Currently supported: 'llm-gateway'."
+      exit 0
+    else
+      echo
+      konnect_up_llm-gateway
+      exit 0
+    fi
+  fi
+}
+
+SUBCOMMAND=$1
+shift
+case $SUBCOMMAND in 
+    "") echo "No subcommand provided. Type 'konnect help' for usage."; exit 1;;
+    *) help "$SUBCOMMAND"; up "$SUBCOMMAND" "$@";;
+esac
+
