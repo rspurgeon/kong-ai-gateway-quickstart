@@ -1,53 +1,52 @@
 #!/bin/bash
 
-SIMULATE="true"
+DEFAULT_SIMULATE="true"
+if [[ -z "$SIMULATE" ]]; then
+  SIMULATE="$DEFAULT_SIMULATE"
+fi
+
 RESOURCE_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | fold -w 6 | head -n 1)
 
-echo_fail() {
+function echo_fail() {
   printf "\e[31m✘ \033\e[0m$@\n"
 }
-echo_pass() {
+function echo_pass() {
   printf "\e[32m✔ \033\e[0m$@\n"
 }
-echo_pause() {
+function echo_pause() {
   printf "\e[34m⏸︎ \033\e[0m$1\n"
 }
-echo_question() {
-  printf "\e[33m? \033\e[0m$@\n"
+function echo_question() {
+  if [ "$2" = "" ]; then
+    printf "\e[33m? \033\e[0m$@\n"
+  else
+    printf "\e[33m? \033\e[0m$@"
+  fi
 }
-echo_info() {
+function echo_info() {
   printf "\e[34mℹ \033\e[0m$1\n"
 }
-echo_point() {
+function echo_point() {
   if [ "$2" = "" ]; then
     printf "\e[34m→ \033\e[0m$1\n"
   else
     printf "\e[34m→ \033\e[0m$1"
   fi
 }
-echo_bullet() {
+function echo_bullet() {
   printf "\e[34m• \033\e[0m$1\n"
 }
-echo_wait() {
+function echo_wait() {
   if [ "$2" = "" ]; then
     printf "\e[33m⏲︎ \033\e[0m$1\n"
   else
     printf "\e[33m⏲︎ \033\e[0m$1"
   fi
 }
-echo_warn() {
+function echo_warn() {
   printf "\e[33m✋ \033\e[0m$@\n"
 }
 
-function help() {
-  if [ "$1" == "help" ]; then
-    echo "konnect - Konnect API Platform CLI:"
-    echo "Available subcommands:"
-    echo "    up   : Run a quickstart scenario to quickly bootstrap a use case in Konnect"
-    echo "    help : Display this help text."
-    exit 0
-  fi
-}
 
 function authenticate() {
   # Generate an 8 character (4-4) alphanumeric code
@@ -84,14 +83,17 @@ function konnect_up_llm_gateway() {
     echo "NOTE: These API keys will only be configured as environment vaiables in a LOCAL Kong Gateway"
     echo "dataplane running in Docker, and they will not be sent outside this host machine."
     echo
-    
+   
+    echo -n "Do you want to continue? (y/n) "
     if [ "$SIMULATE" = "true" ]; then
-        read -p "Do you want to continue? (y/n) " response
+        read -p "" response
         if [[ "$response" =~ ^([nN][oO]|[nN])$ ]]
         then
             echo "Exiting..."
             exit 1
         fi
+    else
+        echo
     fi
 
     echo
@@ -102,13 +104,13 @@ function konnect_up_llm_gateway() {
     echo
     echo_bullet "Collecting AI Provider API Keys. Enter key values or press Enter key only to skip a provider"
     echo_point  " Enter OpenAI API Key    : " noline
-    read -p "" OPENAI_API_KEY
+    [ "$SIMULATE" = "true" ] && read -p "" OPENAI_API_KEY
     echo_point  " Enter Cohere API Key    : " noline
-    read -p "" COHERE_API_KEY
+    [ "$SIMULATE" = "true" ] && read -p "" COHERE_API_KEY
     echo_point  " Enter AzureAI API Key   : " noline
-    read -p "" AZURE_API_KEY
+    [ "$SIMULATE" = "true" ] && read -p "" AZURE_API_KEY
     echo_point  " Enter Anthropic API Key : " noline
-    read -p "" ANTHROPIC_API_KEY
+    [ "$SIMULATE" = "true" ] && read -p "" ANTHROPIC_API_KEY
     echo_pass "API Keys collected"
 
     echo
@@ -163,7 +165,7 @@ function konnect_up_llm_gateway() {
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
     echo_info "'$API_PRODUCT_NAME v0.0.1' API Product is ready and available at:"
-    echo      "    https://cloud.konghq.com/us/api-products/4743073a-8017-4982-9ecd-02a14a37780e/versions/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
+    echo      "   https://cloud.konghq.com/us/api-products/4743073a-8017-4982-9ecd-02a14a37780e/versions/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
 
     # A user may have a portal already enabled, and it might not be public. Is this a concern?
     # Maybe not, because when we link to it later they have to provide credentials to see it
@@ -189,7 +191,7 @@ function konnect_up_llm_gateway() {
     echo      " \"messages\": [{"
     echo      "   \"role\": \"user\","
     echo      "   \"content\": \"What is it all about?\""
-    echo      "  }]'"
+    echo      "  }] }'"
     echo       
     echo      "See the Developer Portal for all available routes and request formats:"
     echo      "   https://kong614235c4.us.portal.konghq.com/spec/343db660-6071-439c-a7f8-8900a115fe75/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
@@ -198,32 +200,37 @@ function konnect_up_llm_gateway() {
     echo_pass "Scenario complete!"
 }
 
-function up() {
-  SUBARG=$1
-  shift
+function execute_up() {
+  SCENARIO=$1
+  if [ -z "$SCENARIO" ]; then
+    echo
+    echo "The 'up' subcommand deploys a preconfigured quickstart scenario on Konnect."
+    echo "  Please specify the scenario you want to deploy."
+    echo
+    echo "  Supported scenarios:"
+    echo "    * 'llm-gateway' deploys Kong Gateway as an intelligent egress gateway for AI based language models."
+    echo "          The gateway supports multiple AI providers and a standard API for interacting with them."
+    echo
+    echo "  Usage: konnect up [llm-gateway]"
+    exit 0
+  elif [ "$SCENARIO" != "llm-gateway" ]; then
+    echo "Unsupported Konnect scenario: $SCENARIO."
+    echo "Currently supported: 'llm-gateway'."
+    exit 0
+  else
+    echo
+    konnect_up_llm_gateway
+    exit 0
+  fi
+}
 
-  if [ "$SUBARG" == "up" ]; then
-    SCENARIO=$1
-    if [ -z "$SCENARIO" ]; then
-      echo
-      echo "The 'up' subcommand deploys a preconfigured quickstart scenario on Konnect."
-      echo "  Please specify the scenario you want to deploy."
-      echo
-      echo "  Supported scenarios:"
-      echo "    * 'llm-gateway' deploys Kong Gateway as an intelligent egress gateway for AI based language models."
-      echo "          The gateway supports multiple AI providers and a standard API for interacting with them."
-      echo
-      echo "  Usage: konnect up [llm-gateway]"
-      exit 0
-    elif [ "$SCENARIO" != "llm-gateway" ]; then
-      echo "Unsupported Konnect scenario: $SCENARIO."
-      echo "Currently supported: 'llm-gateway'."
-      exit 0
-    else
-      echo
-      konnect_up_llm_gateway
-      exit 0
-    fi
+function help() {
+  if [ "$1" == "help" ]; then
+    echo "konnect - Konnect API Platform CLI:"
+    echo "Available subcommands:"
+    echo "    up   : Run a quickstart scenario to quickly bootstrap a use case in Konnect"
+    echo "    help : Display this help text."
+    exit 0
   fi
 }
 
@@ -231,6 +238,7 @@ SUBCOMMAND=$1
 shift
 case $SUBCOMMAND in 
     "") echo "No subcommand provided. Type 'konnect help' for usage."; exit 1;;
-    *) help "$SUBCOMMAND"; up "$SUBCOMMAND" "$@";;
+    "up") execute_up "$@";;
+    *) help "$SUBCOMMAND";exit 1;;
 esac
 
