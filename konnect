@@ -72,7 +72,7 @@ function authenticate() {
 
 }
 
-function konnect_up_llm-gateway() {
+function konnect_up_llm_gateway() {
     echo "This scenario will deploy an LLM aware API gateway"
     echo "supporting normalization and governance over outbound LLM API requests."
     echo
@@ -221,7 +221,7 @@ function up() {
       exit 0
     else
       echo
-      konnect_up_llm-gateway
+      konnect_up_llm_gateway
       exit 0
     fi
   fi
