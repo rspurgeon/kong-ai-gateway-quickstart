@@ -43,8 +43,7 @@ function help() {
   if [ "$1" == "help" ]; then
     echo "konnect - Konnect API Platform CLI:"
     echo "Available subcommands:"
-    echo "    up   : Bootstrap a new Control Plane and configure an API Gateway."
-    echo "            * llmgateway - Set up the 'llmgateway' API Gateway."
+    echo "    up   : Run a quickstart scenario to quickly bootstrap a use case in Konnect"
     echo "    help : Display this help text."
     exit 0
   fi
