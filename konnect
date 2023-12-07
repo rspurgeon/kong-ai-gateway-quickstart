@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SIMULATE="true"
+RESOURCE_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | fold -w 6 | head -n 1)
 
 echo_fail() {
   printf "\e[31m✘ \033\e[0m$@\n"
@@ -18,7 +19,11 @@ echo_info() {
   printf "\e[34mℹ \033\e[0m$1\n"
 }
 echo_point() {
-  printf "\e[34m→ \033\e[0m$1\n"
+  if [ "$2" = "" ]; then
+    printf "\e[34m→ \033\e[0m$1\n"
+  else
+    printf "\e[34m→ \033\e[0m$1"
+  fi
 }
 echo_bullet() {
   printf "\e[34m• \033\e[0m$1\n"
@@ -29,9 +34,6 @@ echo_wait() {
   else
     printf "\e[33m⏲︎ \033\e[0m$1"
   fi
-}
-echo_wait() {
-  printf "\e[33m⏲︎ \033\e[0m$@\n"
 }
 echo_warn() {
   printf "\e[33m✋ \033\e[0m$@\n"
@@ -99,11 +101,15 @@ function konnect_up_llm-gateway() {
     authenticate
 
     echo
-    echo_bullet "Collecting AI Provider API Keys. Paste key value or Enter to skip a provider"
-    read -p " Enter OpenAI API Key   : " OPENAI_API_KEY
-    read -p " Enter Cohere API Key   : " COHERE_API_KEY
-    read -p " Enter AzureAI API Key  : " AZURE_API_KEY
-    read -p " Enter Anthropic API Key: " ANTHROPIC_API_KEY
+    echo_bullet "Collecting AI Provider API Keys. Enter key values or press Enter key only to skip a provider"
+    echo_point  " Enter OpenAI API Key    : " noline
+    read -p "" OPENAI_API_KEY
+    echo_point  " Enter Cohere API Key    : " noline
+    read -p "" COHERE_API_KEY
+    echo_point  " Enter AzureAI API Key   : " noline
+    read -p "" AZURE_API_KEY
+    echo_point  " Enter Anthropic API Key : " noline
+    read -p "" ANTHROPIC_API_KEY
     echo_pass "API Keys collected"
 
     echo
@@ -119,14 +125,14 @@ function konnect_up_llm-gateway() {
 
     echo
     echo_bullet "Initializing Konnect environment..."
-    echo_wait "Creating new Personal Access Token ( llm-gateway-pat )... " noline
+    echo_wait "Creating new Personal Access Token ( llm-gateway-pat-$RESOURCE_SUFFIX )... " noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
-    RESOURCE_SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | fold -w 6 | head -n 1)
-    echo_wait "Creating new Konnect control plane ( ai-gateway-$RESOURCE_SUFFIX )... " noline
+
+    echo_wait "Creating new Konnect control plane ( llm-gateway-cp-$RESOURCE_SUFFIX )... " noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
-    echo_info "Control plane 'ai-gateway-$RESOURCE_SUFFIX' is ready and available at:"
+    echo_info "Control plane 'llm-gateway-cp-$RESOURCE_SUFFIX' is ready and available at:"
     echo      "   https://cloud.konghq.com/us/gateway-manager/e5c34651-f676-401c-82b2-018f9587d976/overview"
     echo_pass "Konnect ready!"
 
@@ -144,32 +150,33 @@ function konnect_up_llm-gateway() {
     echo_pass "Kong Gateway ready!"
     echo
 
-    echo_wait "Creating new Konnect API Product ( LLM Gateway )... " noline
+    API_PRODUCT_NAME="LLM Gateway ($RESOURCE_SUFFIX)"
+    echo_wait "Creating new API Product ( $API_PRODUCT_NAME )... " noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
-    echo_info "API Product 'LLM GATEWAY' is ready and available at:"
+    echo_info "API Product '$API_PRODUCT_NAME' is ready and available at:"
     echo      "   https://cloud.konghq.com/us/api-products/4743073a-8017-4982-9ecd-02a14a37780e/overview" 
 
-    echo_wait "Creating new Konnect API Product Version ( v0.0.1 )... " noline
+    echo_wait "Creating new API Product Version ( v0.0.1 )... " noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
-    echo_wait "Uploading OpenAPI specification 'llm-gateway-oas.yaml' to 'LLM Gateway API Product v0.0.1'" noline
+    echo_wait "Uploading OpenAPI specification to API Product '$API_PRODUCT_NAME'... " noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
-    echo_info "API Product Version 'LLM GATEWAY v0.0.1' is ready and available at:"
+    echo_info "'$API_PRODUCT_NAME v0.0.1' API Product is ready and available at:"
     echo      "    https://cloud.konghq.com/us/api-products/4743073a-8017-4982-9ecd-02a14a37780e/versions/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
 
     # A user may have a portal already enabled, and it might not be public. Is this a concern?
     # Maybe not, because when we link to it later they have to provide credentials to see it
     echo
     echo_bullet "Preparing Konnect Developer Portal..."
-    echo_wait "Your organization's Developer Portal is disabled, enabling..."
-    echo_wait "Enabling Developer Portal... " noline
+    echo_info   "Your organization's Developer Portal is disabled, enabling..."
+    echo_wait   "Enabling Developer Portal... " noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
-    echo_info "Developer Portal ready and available at:"
-    echo      "   https://kong614235c4.us.portal.konghq.com/"
-    echo_wait "Publishing LLM Gateway API Product v0.0.1 to Developer Portal..." noline
+    echo_info   "Developer Portal ready and available at:"
+    echo        "   https://kong614235c4.us.portal.konghq.com/"
+    echo_wait "Publishing $API_PRODUCT_NAME to Developer Portal..." noline
     [ "$SIMULATE" = "true" ] && sleep 2
     echo_pass ""
     echo_pass "Developer Portal ready!"
@@ -182,12 +189,14 @@ function konnect_up_llm-gateway() {
     echo      "curl -s localhost:8000/openai/chat -H \"Content-Type: application/json\" -d '{"
     echo      " \"messages\": [{"
     echo      "   \"role\": \"user\","
-    echo      "   \"content\": \"abc\""
-    echo      "  }]"
-
+    echo      "   \"content\": \"What is it all about?\""
+    echo      "  }]'"
     echo       
-    echo      "The Developer Portal documents all available routes and request formats:"
+    echo      "See the Developer Portal for all available routes and request formats:"
     echo      "   https://kong614235c4.us.portal.konghq.com/spec/343db660-6071-439c-a7f8-8900a115fe75/34c3b6d7-c822-47cc-9408-d92b31c39ca3"
+
+    echo
+    echo_pass "Scenario complete!"
 }
 
 function up() {
