@@ -226,7 +226,8 @@ function execute_up() {
 
 function help() {
   if [ "$1" == "help" ]; then
-    echo "konnect - Konnect API Platform CLI:"
+    echo "konnect - Kong Konnect Platform CLI"
+    echo
     echo "Available subcommands:"
     echo "    up   : Run a quickstart scenario to quickly bootstrap a use case in Konnect"
     echo "    help : Display this help text."
@@ -237,7 +238,7 @@ function help() {
 SUBCOMMAND=$1
 shift
 case $SUBCOMMAND in 
-    "") echo "No subcommand provided. Type 'konnect help' for usage."; exit 1;;
+    "") help "help"; exit 1;;
     "up") execute_up "$@";;
     *) help "$SUBCOMMAND";exit 1;;
 esac
